@@ -62,7 +62,7 @@ start32:
   movw    %ax, %gs                # -> GS
 
   # Set up the stack pointer and call into C.
-  movl    $start, %esp
+  movl    $start, %esp		  # #HW1 Stack Initialized
   call    bootmain
 
   # If bootmain returns (it shouldn't), trigger a Bochs
