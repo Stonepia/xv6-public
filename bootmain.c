@@ -32,13 +32,14 @@ bootmain(void)
     return;  // let bootasm.S handle error
 
   // Load each program segment (ignores ph flags).
-  ph = (struct proghdr*)((uchar*)elf + elf->phoff);
-  eph = ph + elf->phnum;
+  ph = (struct proghdr*)((uchar*)elf + elf->phoff);//The bootloader gets information from
+                                // ELF file. So it will kown how many segments to read
+  eph = ph + elf->phnum;//So this is the end segment
   for(; ph < eph; ph++){
     pa = (uchar*)ph->paddr;
     readseg(pa, ph->filesz, ph->off);
     if(ph->memsz > ph->filesz)
-      stosb(pa + ph->filesz, 0, ph->memsz - ph->filesz);
+      stosb(pa + ph->filesz, 0, ph->memsz - ph->filesz);//zero the remainder of the segment
   }
 
   // Call the entry point from the ELF header.

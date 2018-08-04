@@ -41,13 +41,18 @@ seta20.2:
   # effective memory map doesn't change during the transition.
   lgdt    gdtdesc
   movl    %cr0, %eax
-  orl     $CR0_PE, %eax
-  movl    %eax, %cr0
-
+  orl     $CR0_PE, %eax    #Set the 0th bit of %cr0 to 1
+  movl    %eax, %cr0	   #$CR0_PE = 0x0000 0001
+			   #So this means we just use segements(no pages)
 //PAGEBREAK!
   # Complete the transition to 32-bit protected mode by using a long jmp
   # to reload %cs and %eip.  The segment descriptors are set up with no
   # translation, so that the mapping is still the identity mapping.
+  # SEG_KCODE is a macro equals to 3. So this is just $1<<3
+  # The GDT have most 8192=2^13 entries. So we just need 13 bits to 
+  # identify a segment in GDT.
+  # Thus, with this knowledge, the upper 13bits represent for the index 
+  # of GDT Table. and its upper 13 bits is all 1.
   ljmp    $(SEG_KCODE<<3), $start32
 
 .code32  # Tell assembler to generate 32-bit code now.
@@ -85,4 +90,4 @@ gdt:
 gdtdesc:
   .word   (gdtdesc - gdt - 1)             # sizeof(gdt) - 1
   .long   gdt                             # address gdt
-
+# so that 48 bits trasferred to GDTR Register

@@ -42,9 +42,9 @@ outsl(int port, const void *addr, int cnt)
 static inline void
 stosb(void *addr, int data, int cnt)
 {
-  asm volatile("cld; rep stosb" :
-               "=D" (addr), "=c" (cnt) :
-               "0" (addr), "1" (cnt), "a" (data) :
+  asm volatile("cld; rep stosb" ://make the request to the OS:clr direction flg
+               "=D" (addr), "=c" (cnt) ://return result in edx, ecx
+               "0" (addr), "1" (cnt), "a" (data) ://pass those in
                "memory", "cc");
 }
 
