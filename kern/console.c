@@ -192,12 +192,14 @@ cga_putc(int c)
 	}
 
 	// What is the purpose of this?
+	// If the buffer is full (>=CRT_SIZE), move to the next line
+	// which is, move one row up 
 	if (crt_pos >= CRT_SIZE) {
 		int i;
 
 		memmove(crt_buf, crt_buf + CRT_COLS, (CRT_SIZE - CRT_COLS) * sizeof(uint16_t));
 		for (i = CRT_SIZE - CRT_COLS; i < CRT_SIZE; i++)
-			crt_buf[i] = 0x0700 | ' ';
+			crt_buf[i] = 0x0700 | ' ';//fill it with ' '
 		crt_pos -= CRT_COLS;
 	}
 
@@ -222,6 +224,39 @@ cga_putc(int c)
 #define SCROLLLOCK	(1<<5)
 
 #define E0ESC		(1<<6)
+
+//Set Graphics Mode
+
+static uint8_t ansi_text_attr[]={
+	0,/* All attributes off */
+	1,/* Bold on */
+	4,/* Underscore */
+	5,/* Blink On */
+	7,/* Reverse Video on */
+	8,/* Concealed on */
+};
+// Foregound Colors
+static uint8_t ansi_foreground_color[] = {
+    30, /* black */
+    31, /* red */
+    32, /* green */
+    33, /* yellow */
+    34, /* blue */
+    35, /* magenta */
+    36, /* cyan */
+    37, /* white */
+};
+// Background colors
+static uint8_t ansi_bkground_color[] = {
+    40, /* black */
+    41, /* red */
+    42, /* green */
+    43, /* yellow */
+    44, /* blue */
+    45, /* magenta */
+    46, /* cyan */
+    47, /* white */
+};
 
 static uint8_t shiftcode[256] =
 {

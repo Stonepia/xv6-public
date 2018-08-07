@@ -17,15 +17,16 @@
  * The integer may be positive or negative,
  * so that -E_NO_MEM and E_NO_MEM are equivalent.
  */
+int color = 0x0700; //Initialize the color. Find this at console.c -> cga_putc
 
-static const char * const error_string[MAXERROR] =
-{
-	[E_UNSPECIFIED]	= "unspecified error",
-	[E_BAD_ENV]	= "bad environment",
-	[E_INVAL]	= "invalid parameter",
-	[E_NO_MEM]	= "out of memory",
-	[E_NO_FREE_ENV]	= "out of environments",
-	[E_FAULT]	= "segmentation fault",
+static const char *const error_string[MAXERROR] =
+	{
+		[E_UNSPECIFIED] = "unspecified error",
+		[E_BAD_ENV] = "bad environment",
+		[E_INVAL] = "invalid parameter",
+		[E_NO_MEM] = "out of memory",
+		[E_NO_FREE_ENV] = "out of environments",
+		[E_FAULT] = "segmentation fault",
 };
 
 /*
@@ -33,20 +34,23 @@ static const char * const error_string[MAXERROR] =
  * using specified putch function and associated pointer putdat.
  */
 static void
-printnum(void (*putch)(int, void*), void *putdat,
-	 unsigned long long num, unsigned base, int width, int padc)
+printnum(void (*putch)(int, void *), void *putdat,
+		 unsigned long long num, unsigned base, int width, int padc)
 {
 	// first recursively print all preceding (more significant) digits
-	if (num >= base) {
+	if (num >= base)
+	{
 		printnum(putch, putdat, num / base, base, width - 1, padc);
-	} else {
+	}
+	else
+	{
 		// print any needed pad characters before first digit
 		while (--width > 0)
-			putch(padc, putdat);
+			putch(padc | color, putdat);
 	}
 
 	// then print this (the least significant) digit
-	putch("0123456789abcdef"[num % base], putdat);
+	putch("0123456789abcdef"[num % base] | color, putdat);
 }
 
 // Get an unsigned int of various possible sizes from a varargs list,
@@ -75,24 +79,72 @@ getint(va_list *ap, int lflag)
 		return va_arg(*ap, int);
 }
 
-
 // Main function to format and print a string.
-void printfmt(void (*putch)(int, void*), void *putdat, const char *fmt, ...);
+void printfmt(void (*putch)(int, void *), void *putdat, const char *fmt, ...);
 
-void
-vprintfmt(void (*putch)(int, void*), void *putdat, const char *fmt, va_list ap)
+void vprintfmt(void (*putch)(int, void *), void *putdat, const char *fmt, va_list ap)
 {
 	register const char *p;
 	register int ch, err;
 	unsigned long long num;
-	int base, lflag, width, precision, altflag;
+	int base, lflag, width, precision, altflag, c_num;
 	char padc;
-
-	while (1) {
-		while ((ch = *(unsigned char *) fmt++) != '%') {
+	while (1)
+	{
+		while ((ch = *(unsigned char *)fmt++) != '%')
+		{
 			if (ch == '\0')
+			{
+				color = 0x0700; //change color back
 				return;
-			putch(ch, putdat);
+			}
+			//putch(ch, putdat);
+			//else if(ch == '[')
+			else if (ch == '\e') //<Esc> key
+			{
+				ch = *(unsigned char *)fmt++;
+				if (ch == '[')
+					ch = *(unsigned char *)fmt++;
+				while (ch != 'm') //The color format is like : <Esc>[Value;...;Value m
+				{
+					// See *VGA-compatible_text_mode* From Wiki
+					// You can find at https://os.phil-opp.com/vga-text-mode/
+					// It is a 16 bit attribute
+					// We have to translate the ASCII to VGA capable
+
+					// TODO: This is not well implemented. How to translate the ANSI escape
+					// sequences into the correct string is not implemented yet.
+					// Also, there should be a translation table. Because the VGA is not the same.
+					c_num = 0;
+					while (ch >= '0' && ch <= '9')
+					{
+						c_num = c_num * 10 + ch - '0';
+						ch = *(unsigned char *)fmt++;
+					}
+					if (c_num >= 30 && c_num <= 37)
+					{
+						//Foreground color
+						color &= 0xf0ff; //mask to ZERO the ForeGround Bits.
+						color |= (c_num << 8);
+					}
+					else if (c_num >= 40 && c_num <= 47)
+					{
+						//Background color
+						color &= 0x8fff; //Zero the Background bits
+						color |= (c_num << 12);
+					}
+					else if (c_num >= 0 && c_num <= 8)
+					{
+						//Other attributes
+						//NOTICE that Error Checking here is not implemented yet
+						ch = *(unsigned char *)fmt++; //Ignore it~
+					}
+					if (ch == ';')
+						ch = *(unsigned char *)fmt++;
+				}
+				ch = *(unsigned char *)fmt++;
+			}
+			putch(ch | color, putdat);
 		}
 
 		// Process a %-escape sequence
@@ -102,7 +154,8 @@ vprintfmt(void (*putch)(int, void*), void *putdat, const char *fmt, va_list ap)
 		lflag = 0;
 		altflag = 0;
 	reswitch:
-		switch (ch = *(unsigned char *) fmt++) {
+		switch (ch = *(unsigned char *)fmt++)
+		{
 
 		// flag to pad on the right
 		case '-':
@@ -124,7 +177,8 @@ vprintfmt(void (*putch)(int, void*), void *putdat, const char *fmt, va_list ap)
 		case '7':
 		case '8':
 		case '9':
-			for (precision = 0; ; ++fmt) {
+			for (precision = 0;; ++fmt)
+			{
 				precision = precision * 10 + ch - '0';
 				ch = *fmt;
 				if (ch < '0' || ch > '9')
@@ -157,7 +211,7 @@ vprintfmt(void (*putch)(int, void*), void *putdat, const char *fmt, va_list ap)
 
 		// character
 		case 'c':
-			putch(va_arg(ap, int), putdat);
+			putch(va_arg(ap, int) | color, putdat);
 			break;
 
 		// error message
@@ -177,22 +231,23 @@ vprintfmt(void (*putch)(int, void*), void *putdat, const char *fmt, va_list ap)
 				p = "(null)";
 			if (width > 0 && padc != '-')
 				for (width -= strnlen(p, precision); width > 0; width--)
-					putch(padc, putdat);
+					putch(padc | color, putdat);
 			for (; (ch = *p++) != '\0' && (precision < 0 || --precision >= 0); width--)
 				if (altflag && (ch < ' ' || ch > '~'))
-					putch('?', putdat);
+					putch('?' | color, putdat);
 				else
-					putch(ch, putdat);
+					putch(ch | color, putdat);
 			for (; width > 0; width--)
-				putch(' ', putdat);
+				putch(' ' | color, putdat);
 			break;
 
 		// (signed) decimal
 		case 'd':
 			num = getint(&ap, lflag);
-			if ((long long) num < 0) {
-				putch('-', putdat);
-				num = -(long long) num;
+			if ((long long)num < 0)
+			{
+				putch('-' | color, putdat);
+				num = -(long long)num;
 			}
 			base = 10;
 			goto number;
@@ -205,18 +260,16 @@ vprintfmt(void (*putch)(int, void*), void *putdat, const char *fmt, va_list ap)
 
 		// (unsigned) octal
 		case 'o':
-			// Replace this with your code.
-			putch('X', putdat);
-			putch('X', putdat);
-			putch('X', putdat);
-			break;
+			num = (unsigned long long)(uintptr_t)va_arg(ap, void *);
+			base = 8;
+			goto number;
+			//break;
 
 		// pointer
 		case 'p':
-			putch('0', putdat);
-			putch('x', putdat);
-			num = (unsigned long long)
-				(uintptr_t) va_arg(ap, void *);
+			putch('0' | color, putdat);
+			putch('x' | color, putdat);
+			num = (unsigned long long)(uintptr_t)va_arg(ap, void *);
 			base = 16;
 			goto number;
 
@@ -230,12 +283,12 @@ vprintfmt(void (*putch)(int, void*), void *putdat, const char *fmt, va_list ap)
 
 		// escaped '%' character
 		case '%':
-			putch(ch, putdat);
+			putch(ch | color, putdat);
 			break;
 
 		// unrecognized escape sequence - just print it literally
 		default:
-			putch('%', putdat);
+			putch('%' | color, putdat);
 			for (fmt--; fmt[-1] != '%'; fmt--)
 				/* do nothing */;
 			break;
@@ -243,8 +296,7 @@ vprintfmt(void (*putch)(int, void*), void *putdat, const char *fmt, va_list ap)
 	}
 }
 
-void
-printfmt(void (*putch)(int, void*), void *putdat, const char *fmt, ...)
+void printfmt(void (*putch)(int, void *), void *putdat, const char *fmt, ...)
 {
 	va_list ap;
 
@@ -253,7 +305,8 @@ printfmt(void (*putch)(int, void*), void *putdat, const char *fmt, ...)
 	va_end(ap);
 }
 
-struct sprintbuf {
+struct sprintbuf
+{
 	char *buf;
 	char *ebuf;
 	int cnt;
@@ -267,16 +320,15 @@ sprintputch(int ch, struct sprintbuf *b)
 		*b->buf++ = ch;
 }
 
-int
-vsnprintf(char *buf, int n, const char *fmt, va_list ap)
+int vsnprintf(char *buf, int n, const char *fmt, va_list ap)
 {
-	struct sprintbuf b = {buf, buf+n-1, 0};
+	struct sprintbuf b = {buf, buf + n - 1, 0};
 
 	if (buf == NULL || n < 1)
 		return -E_INVAL;
 
 	// print the string to the buffer
-	vprintfmt((void*)sprintputch, &b, fmt, ap);
+	vprintfmt((void *)sprintputch, &b, fmt, ap);
 
 	// null terminate the buffer
 	*b.buf = '\0';
@@ -284,8 +336,7 @@ vsnprintf(char *buf, int n, const char *fmt, va_list ap)
 	return b.cnt;
 }
 
-int
-snprintf(char *buf, int n, const char *fmt, ...)
+int snprintf(char *buf, int n, const char *fmt, ...)
 {
 	va_list ap;
 	int rc;
@@ -296,5 +347,3 @@ snprintf(char *buf, int n, const char *fmt, ...)
 
 	return rc;
 }
-
-
